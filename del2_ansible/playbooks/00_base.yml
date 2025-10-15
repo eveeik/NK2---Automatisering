@@ -29,3 +29,10 @@
           - login local
           - transport input ssh
           - exec-timeout 10 0
+
+    - name: Basic hardening
+      cisco.ios.ios_config:
+        lines:
+          - no ip http server
+          - no ip http secure-server
+          - service password-encryption
