@@ -1,0 +1,63 @@
+---
+- name: VLAN og porter på switcher
+  hosts: switches
+  gather_facts: no
+
+  vars:
+    vlans:
+      - { id: 10, name: KONTOR }
+      - { id: 20, name: ELEVER }
+      - { id: 99, name: MGMT }
+
+    access_ports:
+      - { name: GigabitEthernet0/1, vlan: 10 }
+      - { name: GigabitEthernet0/2, vlan: 20 }
+
+    trunk_ports:
+      - { name: GigabitEthernet0/24, allowed: "10,20,99" }
+
+    mgmt:
+      vlan: 99
+      ip: 192.168.99.2
+      mask: 255.255.255.0
+      gw: 192.168.99.1
+
+  tasks:
+    - name: Opprett VLAN
+      cisco.ios.ios_vlans:
+        config: "{{ vlans }}"
+        state: merged
+
+    - name: Konfigurer access-porter
+      cisco.ios.ios_l2_interfaces:
+        config:
+          - name: "{{ item.name }}"
+            mode: access
+            access:
+              vlan: "{{ item.vlan }}"
+        loop: "{{ access_ports }}"
+        state: merged
+
+    - name: Konfigurer trunk-porter
+      cisco.ios.ios_l2_interfaces:
+        config:
+          - name: "{{ item.name }}"
+            mode: trunk
+            trunk:
+              allowed_vlans: "{{ item.allowed }}"
+        loop: "{{ trunk_ports }}"
+        state: merged
+
+    - name: Sett IP på mgmt-SVI
+      cisco.ios.ios_interfaces:
+        config:
+          - name: "Vlan{{ mgmt.vlan }}"
+            ipv4:
+              - address: "{{ mgmt.ip }} {{ mgmt.mask }}"
+            enabled: true
+        state: merged
+
+    - name: Default gateway for mgmt
+      cisco.ios.ios_config:
+        lines:
+          - "ip default-gateway {{ mgmt.gw }}"
