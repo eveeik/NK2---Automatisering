@@ -1,0 +1,35 @@
+---
+- name: MLS: SVI + routed uplinks + default routes
+  hosts: mls
+  gather_facts: no
+  tasks:
+    - name: Ensure VLANs on MLS
+      cisco.ios.ios_vlans:
+        config: "{{ vlans | map('combine', {'state':'active'}) | list }}"
+        state: merged
+
+    - name: SVIs with IP + no shut
+      cisco.ios.ios_config:
+        with_items: "{{ mls_svis }}"
+        loop_control: { loop_var: svi }
+        parents: "interface Vlan {{ svi.vlan }}"
+        lines:
+          - "ip address {{ svi.ip }} {{ svi.mask }}"
+          - "no shutdown"
+
+    - name: Routed uplinks to routers
+      cisco.ios.ios_config:
+        with_items: "{{ mls_routed_uplinks }}"
+        loop_control: { loop_var: u }
+        parents: "interface {{ u.name }}"
+        lines:
+          - no switchport
+          - "ip address {{ u.ip }} {{ u.mask }}"
+          - no shutdown
+
+    - name: Default routes (primary + backup AD)
+      cisco.ios.ios_config:
+        with_items: "{{ mls_default_routes }}"
+        loop_control: { loop_var: r }
+        lines:
+          - "ip route {{ r.dest.split('/')[0] }} {{ (r.dest.split('/')[1]|int)|ipaddr('netmask') }} {{ r.next_hop }} {{ r.distance|default('') }}"
