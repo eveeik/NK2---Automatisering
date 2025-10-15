@@ -1,63 +1,52 @@
 ---
-- name: VLAN og porter på switcher
-  hosts: switches
+- name: L2: VLAN + porter + mgmt SVI
+  hosts: switches_l2
   gather_facts: no
-
-  vars:
-    vlans:
-      - { id: 10, name: KONTOR }
-      - { id: 20, name: ELEVER }
-      - { id: 99, name: MGMT }
-
-    access_ports:
-      - { name: GigabitEthernet0/1, vlan: 10 }
-      - { name: GigabitEthernet0/2, vlan: 20 }
-
-    trunk_ports:
-      - { name: GigabitEthernet0/24, allowed: "10,20,99" }
-
-    mgmt:
-      vlan: 99
-      ip: 192.168.99.2
-      mask: 255.255.255.0
-      gw: 192.168.99.1
-
   tasks:
-    - name: Opprett VLAN
+    - name: Ensure VLANs
       cisco.ios.ios_vlans:
-        config: "{{ vlans }}"
+        config: "{{ vlans | map('combine', {'state':'active'}) | list }}"
         state: merged
 
-    - name: Konfigurer access-porter
+    - name: Access ports v10
+      when: access_ports_v10 is defined
       cisco.ios.ios_l2_interfaces:
-        config:
-          - name: "{{ item.name }}"
-            mode: access
-            access:
-              vlan: "{{ item.vlan }}"
-        loop: "{{ access_ports }}"
+        config: "{{ access_ports_v10 | map('combine', {'mode':'access'}) | list }}"
         state: merged
 
-    - name: Konfigurer trunk-porter
+    - name: Access ports v20
+      when: access_ports_v20 is defined
       cisco.ios.ios_l2_interfaces:
-        config:
-          - name: "{{ item.name }}"
-            mode: trunk
-            trunk:
-              allowed_vlans: "{{ item.allowed }}"
-        loop: "{{ trunk_ports }}"
+        config: "{{ access_ports_v20 | map('combine', {'mode':'access'}) | list }}"
         state: merged
 
-    - name: Sett IP på mgmt-SVI
-      cisco.ios.ios_interfaces:
-        config:
-          - name: "Vlan{{ mgmt.vlan }}"
-            ipv4:
-              - address: "{{ mgmt.ip }} {{ mgmt.mask }}"
-            enabled: true
-        state: merged
+    - name: Tag access + no shut
+      when: (access_ports_v10|default([])) or (access_ports_v20|default([]))
+      cisco.ios.ios_config:
+        with_items: "{{ (access_ports_v10|default([])) + (access_ports_v20|default([])) }}"
+        loop_control: { loop_var: p }
+        parents: "interface {{ p.name }}"
+        lines:
+          - "switchport access vlan {{ p.vlan }}"
+          - "spanning-tree portfast"
+          - "no shutdown"
 
-    - name: Default gateway for mgmt
+    - name: Trunks
+      when: trunks is defined
+      cisco.ios.ios_config:
+        with_items: "{{ trunks }}"
+        loop_control: { loop_var: t }
+        parents: "interface {{ t.name }}"
+        lines:
+          - switchport mode trunk
+          - "switchport trunk allowed vlan {{ t.allowed }}"
+          - no shutdown
+
+    - name: Mgmt SVI Vlan99 + default-gw
       cisco.ios.ios_config:
         lines:
-          - "ip default-gateway {{ mgmt.gw }}"
+          - "interface Vlan99"
+          - " ip address {{ l2_mgmt[inventory_hostname].ip }} {{ l2_mgmt[inventory_hostname].mask }}"
+          - " no shutdown"
+          - "exit"
+          - "ip default-gateway {{ l2_mgmt[inventory_hostname].gw }}"
