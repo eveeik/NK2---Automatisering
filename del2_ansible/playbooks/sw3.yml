@@ -1,0 +1,46 @@
+---
+- name: Configure SW3 trunks and EtherChannel to SW2
+  hosts: SW3
+
+  tasks:
+    - name: Create VLANs 10 and 20
+      cisco.ios.ios_config:
+        lines:
+          - vlan 10
+          - name VLAN10
+          - vlan 20
+          - name VLAN20
+
+    - name: Configure Fa0/1-2 as trunks (VLANs 10,20,99)
+      cisco.ios.ios_config:
+        lines:
+          - interface range FastEthernet0/1-2
+          - switchport mode trunk
+          - switchport trunk allowed vlan 10,20,99
+          - no shutdown
+
+    - name: Configure Port-Channel1 as trunk to SW2
+      cisco.ios.ios_config:
+        lines:
+          - interface Port-channel1
+          - description LACP link to SW2 (Fa0/23-24)
+          - switchport mode trunk
+          - switchport trunk allowed vlan 10,20,99
+          - no shutdown
+
+    - name: Configure Fa0/23-24 as LACP members to Port-Channel1
+      cisco.ios.ios_config:
+        lines:
+          - interface range FastEthernet0/23-24
+          - description LACP member link to SW2
+          - switchport mode trunk
+          - switchport trunk allowed vlan 10,20,99
+          - channel-protocol lacp
+          - channel-group 1 mode active
+          - no shutdown
+
+    - name: Show EtherChannel and trunk status
+      cisco.ios.ios_command:
+        commands:
+          - show etherchannel summary
+          - show interfaces trunk

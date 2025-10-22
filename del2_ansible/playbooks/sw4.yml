@@ -1,0 +1,42 @@
+---
+- name: Configure SW4 access switch
+  hosts: SW4
+
+  tasks:
+    - name: Create VLANs 10 and 20 (do not touch VLAN 99)
+      cisco.ios.ios_config:
+        lines:
+          - vlan 10
+          - name VLAN10
+          - vlan 20
+          - name VLAN20
+
+    - name: Configure Fa0/1 as trunk (allow 10,20,99; do NOT change native)
+      cisco.ios.ios_config:
+        lines:
+          - interface gig1/0/1
+          - switchport mode trunk
+          - switchport trunk allowed vlan 10,20,99
+          - no shutdown
+
+    - name: Configure Fa0/2-12 as access ports on VLAN 10
+      cisco.ios.ios_config:
+        lines:
+          - interface range gig1/0/2-12
+          - switchport mode access
+          - switchport access vlan 10
+          - no shutdown
+
+    - name: Configure Fa0/13-24 as access ports on VLAN 20
+      cisco.ios.ios_config:
+        lines:
+          - interface range gig1/0/13-24
+          - switchport mode access
+          - switchport access vlan 20
+          - no shutdown
+
+    - name: Show trunk and access status
+      cisco.ios.ios_command:
+        commands:
+          - show interfaces trunk
+          - show vlan brief

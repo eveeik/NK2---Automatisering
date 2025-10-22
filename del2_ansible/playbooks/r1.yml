@@ -1,0 +1,71 @@
+---
+- name: Configure R1 VLANs, HSRP, and DHCP (no vars)
+  hosts: R1
+
+
+  tasks:
+    - name: Configure subinterface for VLAN 10 with HSRP v2
+      cisco.ios.ios_config:
+        lines:
+          - interface GigabitEthernet0/0.10
+          - description R1 R-ON-A-STICK for VLAN 10
+          - encapsulation dot1Q 10
+          - ip address 10.10.0.2 255.255.255.0
+          - standby version 2
+          - standby 10 ip 10.10.0.1
+          - standby 10 priority 110
+          - standby 10 preempt
+          - standby 10 name VLAN10
+          - no shutdown
+
+    - name: Configure subinterface for VLAN 20 with HSRP v2
+      cisco.ios.ios_config:
+        lines:
+          - interface GigabitEthernet0/0.20
+          - description R1 R-ON-A-STICK for VLAN 20
+          - encapsulation dot1Q 20
+          - ip address 10.20.0.2 255.255.255.0
+          - standby version 2
+          - standby 20 ip 10.20.0.1
+          - standby 20 priority 110
+          - standby 20 preempt
+          - standby 20 name VLAN20
+          - no shutdown
+
+    - name: Configure DHCP excluded addresses for VLAN 10 (R1 serves .51–.200)
+      cisco.ios.ios_config:
+        lines:
+          - ip dhcp excluded-address 10.10.0.1 10.10.0.50
+          - ip dhcp excluded-address 10.10.0.201 10.10.0.254
+
+    - name: Configure DHCP excluded addresses for VLAN 20 (R1 serves .51–.200)
+      cisco.ios.ios_config:
+        lines:
+          - ip dhcp excluded-address 10.20.0.1 10.20.0.50
+          - ip dhcp excluded-address 10.20.0.201 10.20.0.254
+
+    - name: Create DHCP pool for VLAN 10
+      cisco.ios.ios_config:
+        lines:
+          - ip dhcp pool VLAN10
+          - network 10.10.0.0 255.255.255.0
+          - default-router 10.10.0.1
+          - dns-server 1.1.1.1 8.8.8.8
+          - lease 0 12
+
+    - name: Create DHCP pool for VLAN 20
+      cisco.ios.ios_config:
+        lines:
+          - ip dhcp pool VLAN20
+          - network 10.20.0.0 255.255.255.0
+          - default-router 10.20.0.1
+          - dns-server 1.1.1.1 8.8.8.8
+          - lease 0 12
+
+    - name: Show HSRP and DHCP status (debug)
+      cisco.ios.ios_command:
+        commands:
+          - show standby brief
+          - show ip dhcp binding
+          - show ip dhcp pool
+
