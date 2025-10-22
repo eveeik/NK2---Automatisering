@@ -1,0 +1,33 @@
+[SW1]
+10.99.0.10 ansible_network_os=cisco.ios.ios ansible_connection=network_cli
+[R1]
+10.99.0.11 ansible_network_os=cisco.ios.ios ansible_connection=network_cli
+[R2]
+10.99.0.12 ansible_network_os=cisco.ios.ios ansible_connection=network_cli
+[SW2]
+10.99.1.10 ansible_network_os=cisco.ios.ios ansible_connection=network_cli
+
+[SW3]
+10.99.1.13 ansible_network_os=cisco.ios.ios ansible_connection=network_cli
+
+[SW4]
+10.99.1.14 ansible_network_os=cisco.ios.ios ansible_connection=network_cli
+
+
+
+[all:children]
+SW1
+R1
+R2
+SW2
+SW3
+SW4
+
+
+
+[all:vars]
+ansible_user=cisco 
+ansible_password=cisco
+ansible_connection=network_cli
+ansible_netwok_os=ios
+
